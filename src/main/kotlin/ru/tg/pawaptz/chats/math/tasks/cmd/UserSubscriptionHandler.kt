@@ -4,15 +4,15 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
 import org.slf4j.LoggerFactory
 import ru.tg.api.inlined.TgChatId
-import ru.tg.api.transport.TgMessageDto
-import ru.tg.api.transport.TgUpdateDto
-import ru.tg.api.transport.TgUserDto
+import ru.tg.api.transport.TgMessage
+import ru.tg.api.transport.TgUpdate
+import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.gen.UserTaskManager
 import ru.tg.pawaptz.dao.PostgresDao
 
 class UserSubscriptionHandler(
-    private val channel: ReceiveChannel<TgUpdateDto>,
+    private val channel: ReceiveChannel<TgUpdate>,
     private val dao: PostgresDao,
     private val userTaskManager: UserTaskManager
 ) {
@@ -42,8 +42,8 @@ class UserSubscriptionHandler(
     }
 
     private suspend fun handle(
-        msg: TgMessageDto,
-        user: TgUserDto = msg.from,
+        msg: TgMessage,
+        user: TgUser = msg.from,
         tgChatId: TgChatId
     ) = kotlin.runCatching {
         dao.createUserIfNotExist(user, tgChatId)
@@ -59,11 +59,11 @@ class UserSubscriptionHandler(
         log.error(it.message, it)
     }.getOrNull()
 
-    private fun TgMessageDto.isSubscribeMessage(): Boolean {
+    private fun TgMessage.isSubscribeMessage(): Boolean {
         return this.text == subscribe
     }
 
-    private fun TgMessageDto.isUnSubscribeMessage(): Boolean {
+    private fun TgMessage.isUnSubscribeMessage(): Boolean {
         return this.text == unSubscribe
     }
 }

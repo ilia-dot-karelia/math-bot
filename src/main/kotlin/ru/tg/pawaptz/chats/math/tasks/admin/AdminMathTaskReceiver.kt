@@ -4,9 +4,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import org.slf4j.LoggerFactory
-import ru.tg.api.transport.TgMessageDto
-import ru.tg.api.transport.TgUpdateDto
-import ru.tg.api.transport.TgUserDto
+import ru.tg.api.transport.TgMessage
+import ru.tg.api.transport.TgUpdate
+import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathIntTaskDescription
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
 import ru.tg.pawaptz.chats.math.tasks.task.SimpleMathTask
@@ -15,8 +15,8 @@ import ru.tg.pawaptz.inlined.Answer
 
 @ExperimentalCoroutinesApi
 class AdminMathTaskReceiver(
-    private val channel: ReceiveChannel<TgUpdateDto>,
-    private val admin: TgUserDto
+    private val channel: ReceiveChannel<TgUpdate>,
+    private val admin: TgUser
 ) : AdminMathTaskChannel {
     companion object {
         private val log = LoggerFactory.getLogger(AdminMathTaskReceiver::class.java)
@@ -50,11 +50,11 @@ class AdminMathTaskReceiver(
         job.cancel()
     }
 
-    private fun parseTask(upd: TgMessageDto): MathTask {
+    private fun parseTask(upd: TgMessage): MathTask {
         val split = upd.text.split(";")
         val task = MathIntTaskDescription(split[0].substring(1))
         val complexity = TaskComplexity.valueOf(split[1])
-        val answer = Answer(split[2].toFloat())
+        val answer = Answer.CorrectAnswer(split[2].toFloat())
         return SimpleMathTask(taskDescription = task, complexity = complexity, answer = answer, isGenerated = false)
     }
 

@@ -1,8 +1,8 @@
 package ru.tg.pawaptz.chats.math.tasks
 
 import ru.tg.api.inlined.TgChatId
-import ru.tg.api.transport.TgUserDto
+import ru.tg.api.transport.TgUser
 
-data class ActiveUser(val tgUserDto: TgUserDto, val chatId: TgChatId) {
-    fun id() = tgUserDto.id
+data class ActiveUser(val TgUser: TgUser, val chatId: TgChatId) {
+    fun id() = TgUser.id
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.4.3</version>
+        <version>2.5.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>ru.tg.pawaptz</groupId>
@@ -16,9 +16,12 @@
 
     <properties>
         <java.version>14</java.version>
-        <kotlin.version>1.4.30</kotlin.version>
+        <kotlin.version>1.5.0</kotlin.version>
 
-        <ver.telegram>0.0.2-SNAPSHOT</ver.telegram>
+        <ver.telegram>0.0.3-SNAPSHOT</ver.telegram>
+        <ver.emoji>5.1.1</ver.emoji>
+        <ver.mockk>1.11.0</ver.mockk>
+        <ver.okhttp>4.9.1</ver.okhttp>
     </properties>
 
     <dependencies>
@@ -73,11 +76,11 @@
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-coroutines-jdk8</artifactId>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>28.2-jre</version>
-        </dependency>
+        </dependency>-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -86,12 +89,17 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>4.9.1</version>
+            <version>${ver.okhttp}</version>
         </dependency>
         <dependency>
             <groupId>io.mockk</groupId>
             <artifactId>mockk</artifactId>
-            <version>1.11.0</version>
+            <version>${ver.mockk}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.vdurmont</groupId>
+            <artifactId>emoji-java</artifactId>
+            <version>${ver.emoji}</version>
         </dependency>
     </dependencies>
 
