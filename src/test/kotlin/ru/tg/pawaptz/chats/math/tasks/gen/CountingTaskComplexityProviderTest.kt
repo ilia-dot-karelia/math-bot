@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import ru.tg.api.inlined.TgChatId
-import ru.tg.api.transport.TgUserDto
+import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathIntTaskDescription
 import ru.tg.pawaptz.chats.math.tasks.task.SimpleMathTask
@@ -27,7 +27,7 @@ import ru.tg.pawaptz.inlined.Answer
 internal class CountingTaskComplexityProviderTest {
 
     private val dao = mockk<PostgresDao>()
-    private val user = mockk<TgUserDto>()
+    private val user = mockk<TgUser>()
 
     @ExperimentalCoroutinesApi
     private val channel = BroadcastChannel<UserTaskCompletion>(10)
@@ -55,10 +55,10 @@ internal class CountingTaskComplexityProviderTest {
         every { dao.getComplexityOfTaskForUser(user) }.returns(start)
         complexityProvider.startTrackingComplexity(user)
 
-        val task = SimpleMathTask(1, MathIntTaskDescription(""), answer = Answer(20f))
+        val task = SimpleMathTask(1, MathIntTaskDescription(""), answer = Answer.CorrectAnswer(20f))
         assertThat(complexityProvider.appropriateComplexity(user)).isSameAs(start)
         repeat(100) {
-            channel.send(UserTaskCompletion(ActiveUser(user, TgChatId(10)), task, Answer(20f)))
+            channel.send(UserTaskCompletion(ActiveUser(user, TgChatId(10)), task, Answer.CorrectAnswer(20f)))
         }
 
         verify(timeout = 200) { dao.updateComplexityForUser(user, start.grow()) }

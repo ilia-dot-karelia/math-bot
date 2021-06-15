@@ -1,4 +1,4 @@
-package ru.tg.pawaptz.chats.math.tasks;
+package ru.tg.pawaptz.chats.math.tasks
 
 import ru.tg.pawaptz.chats.math.tasks.task.MathIntTaskDescription
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
@@ -9,8 +9,8 @@ enum class Operator(val sign: String) : SelfApplicable {
     PLUS("+") {
         override fun apply(x: Float, y: Float): MathTask {
             return SimpleMathTask(
-                taskDescription = MathIntTaskDescription("$x ${this.sign} $y = ?"),
-                answer = Answer(x + y),
+                taskDescription = MathIntTaskDescription("$x ${this.sign} $y"),
+                answer = Answer.CorrectAnswer(x + y),
                 isGenerated = true
             )
         }
@@ -20,8 +20,8 @@ enum class Operator(val sign: String) : SelfApplicable {
             val max = x.coerceAtLeast(y)
             val min = x.coerceAtMost(y)
             return SimpleMathTask(
-                taskDescription = MathIntTaskDescription("$max ${this.sign} $min = ?"),
-                answer = Answer(max - min),
+                taskDescription = MathIntTaskDescription("$max ${this.sign} $min"),
+                answer = Answer.CorrectAnswer(max - min),
                 isGenerated = true
             )
         }
@@ -30,8 +30,8 @@ enum class Operator(val sign: String) : SelfApplicable {
         override fun apply(x: Float, y: Float): MathTask {
             val multi = x * y
             return SimpleMathTask(
-                taskDescription = MathIntTaskDescription("$multi ${this.sign} $y = ?"),
-                answer = Answer(multi / y),
+                taskDescription = MathIntTaskDescription("$multi ${this.sign} $y"),
+                answer = Answer.CorrectAnswer(multi / y),
                 isGenerated = true
             )
         }
@@ -39,8 +39,8 @@ enum class Operator(val sign: String) : SelfApplicable {
     MULTIPLY("*") {
         override fun apply(x: Float, y: Float): MathTask {
             return SimpleMathTask(
-                taskDescription = MathIntTaskDescription("$x ${this.sign} $y = ?"),
-                answer = Answer(x * y),
+                taskDescription = MathIntTaskDescription("$x ${this.sign} $y"),
+                answer = Answer.CorrectAnswer(x * y),
                 isGenerated = true
             )
         }

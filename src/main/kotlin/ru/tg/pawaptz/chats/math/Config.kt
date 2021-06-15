@@ -11,7 +11,7 @@ import ru.tg.api.generic.TgBot
 import ru.tg.api.generic.TgBotImpl
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
-import ru.tg.api.transport.TgUserDto
+import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminMathTaskChannel
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminMathTaskReceiver
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminTaskProcessor
@@ -21,13 +21,15 @@ import ru.tg.pawaptz.dao.PostgresDao
 import ru.tg.pawaptz.dao.PostgresDaoImpl
 import kotlin.time.ExperimentalTime
 
+@ExperimentalCoroutinesApi
+@ObsoleteCoroutinesApi
 @SuppressWarnings("unused")
 @SpringBootConfiguration
 @PropertySource("classpath:secrets.properties")
 class Config {
 
     @ExperimentalCoroutinesApi
-    @Bean
+    @Bean(initMethod = "start", destroyMethod = "stop")
     fun userManager(
         complexityProvider: UserComplexityProvider,
         tgTaskUpdater: TgTaskUpdater,
@@ -35,7 +37,7 @@ class Config {
     ): UserTaskManager {
         return UserTaskManagerImpl(
             complexityProvider,
-            GenWhenNoNextTask(RandomNextTaskStrategy(), dao),
+            GenWhenNoNextTask(dao),
             tgTaskUpdater,
             dao,
             tgTaskUpdater.subscribe()
@@ -63,7 +65,7 @@ class Config {
 
     @Bean(initMethod = "start", destroyMethod = "stop")
     @ExperimentalCoroutinesApi
-    fun adminTaskChannel(tgBot: TgBot, adminUser: TgUserDto): AdminMathTaskChannel {
+    fun adminTaskChannel(tgBot: TgBot, adminUser: TgUser): AdminMathTaskChannel {
         return AdminMathTaskReceiver(tgBot.subscribe(), adminUser)
     }
 
@@ -71,7 +73,7 @@ class Config {
     fun adminTaskProcessor(
         adminMathTaskChannel: AdminMathTaskChannel,
         postgresDao: PostgresDao,
-        adminUser: TgUserDto,
+        adminUser: TgUser,
         @Value("\${tg.admin.chatId}") adminChatId: Int
     ): AdminTaskProcessor {
         return AdminTaskProcessor(adminMathTaskChannel, postgresDao, adminUser, TgChatId(adminChatId))
@@ -91,8 +93,8 @@ class Config {
     fun adminUser(
         @Value("\${tg.admin.id}") adminId: Long,
         @Value("\${tg.admin.name}") adminName: String
-    ): TgUserDto {
-        return TgUserDto(adminId, false, FirstName(adminName))
+    ): TgUser {
+        return TgUser(adminId, false, FirstName(adminName))
     }
 
     @Bean

@@ -1,12 +1,15 @@
 package ru.tg.pawaptz.dao
 
+import org.springframework.dao.EmptyResultDataAccessException
+import org.springframework.dao.RecoverableDataAccessException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.ResultSetExtractor
 import org.springframework.jdbc.support.GeneratedKeyHolder
 import org.springframework.jdbc.support.KeyHolder
+import org.springframework.transaction.annotation.Transactional
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
-import ru.tg.api.transport.TgUserDto
+import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathIntTaskDescription
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
@@ -14,18 +17,20 @@ import ru.tg.pawaptz.chats.math.tasks.task.SimpleMathTask
 import ru.tg.pawaptz.chats.math.tasks.task.TaskComplexity
 import ru.tg.pawaptz.inlined.Answer
 import java.sql.Statement
+import java.sql.Timestamp
+import java.time.Instant
+import java.util.*
 
 
 class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
     companion object {
         private const val TASK_INSERT =
-            "insert into math_tasks(question,answer,complexity,is_generated) values (?,?,CAST(? AS math_task_complexity),?)"
+            "insert into math_tasks(question,answer,complexity,is_generated) values (?,?,CAST(? AS math_task_complexity),?) on conflict do nothing"
         private const val USER_INSERT = "insert into users(id, name, chat_id, is_active) values (?,?,?,?)"
-
-        // todo replace with insert into users(name) values (?) on conflict (name) do nothing after migration to 11 postgres
-        private const val ANSWER_SAVE =
-            "insert into user_math_tasks_answers (task_id, user_id, user_answer, is_correct) " +
-                    "values (?, ?, ?, ?)"
+        private const val USER_ANSWER_GET = "select user_answer from user_math_tasks_answers where task_id = ?"
+        private const val USER_ANSWER_SAVE =
+            "insert into user_math_tasks_answers (task_id, user_id, user_answer, is_correct, answer_time) " +
+                    "values (?, ?, ?, ?, ?) on conflict(task_id, user_id) do update set user_answer = ?, is_correct=?, answer_time=current_timestamp"
         private const val USER_SELECT = "select count(name) from users where name=?"
         private const val USER_SET_ACTIVITY = "update users set is_active=? where id=?"
         private const val USER_GET_ALL_ACTIVE = "select id, name, chat_id from users where is_active=true"
@@ -34,11 +39,22 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
         private const val USER_NOT_COMPLETE_TASKS =
             "with user_answers as (select * from user_math_tasks_answers where user_id=?)\n" +
                     "select tsk.id, tsk.question, tsk.complexity, tsk.answer, tsk.is_generated from math_tasks tsk left join user_answers ans on tsk.id = ans.task_id\n" +
-                    "where ans.user_answer is null and tsk.complexity=CAST(? AS math_task_complexity) limit ?"
+                    "where tsk.complexity=CAST(? AS math_task_complexity) and " +
+                    "ans.user_answer is null or (ans.is_correct is false and current_timestamp - ans.answer_time > '00:10:00') limit ?"
+    }
+
+    override fun getUserAnswer(taskId: Long): Float? {
+        return try {
+            template.queryForObject(
+                USER_ANSWER_GET, Float::class.java, taskId
+            )
+        } catch (ex: EmptyResultDataAccessException) {
+            null
+        }
     }
 
     override fun createUserIfNotExist(
-        user: TgUserDto,
+        user: TgUser,
         chatId: TgChatId
     ) {
         if (!isUserExists(user))
@@ -52,7 +68,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
             }
     }
 
-    override fun setUserActivityStatus(userDto: TgUserDto, isActive: Boolean) {
+    override fun setUserActivityStatus(userDto: TgUser, isActive: Boolean) {
         template.update {
             val statement = it.prepareStatement(USER_SET_ACTIVITY)
             statement.setBoolean(1, isActive)
@@ -65,7 +81,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
         val keyHolder: KeyHolder = GeneratedKeyHolder()
         template.update({
             val statement = it.prepareStatement(TASK_INSERT, Statement.RETURN_GENERATED_KEYS)
-            statement.setString(1, task.description().get())
+            statement.setString(1, task.description().question())
             statement.setDouble(2, task.answer().v.toDouble())
             statement.setString(3, task.complexity().name)
             statement.setBoolean(4, false)
@@ -74,26 +90,30 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
 
         val key: Long? = keyHolder.keys?.get("id") as Long?
         if (key == null) {
-            throw IllegalStateException("Primary key was not generated for task: $task")
+            throw RecoverableDataAccessException("Primary key was not generated for task: $task")
         } else
             return key
     }
 
-    override fun saveAnswer(taskId: Long, userId: Long, answer: Answer, isCorrect: Boolean) {
+    @Transactional
+    override fun saveAnswer(taskId: Long, userId: Long, answer: Answer) {
         template.update {
-            val statement = it.prepareStatement(ANSWER_SAVE)
+            val statement = it.prepareStatement(USER_ANSWER_SAVE)
             statement.setLong(1, taskId)
             statement.setInt(2, userId.toInt()) //todo fixme
             statement.setDouble(3, answer.v.toDouble())
-            statement.setBoolean(4, isCorrect)
+            statement.setBoolean(4, answer.isCorrect())
+            statement.setTimestamp(5, Timestamp.from(Instant.now()), Calendar.getInstance(TimeZone.getTimeZone("UTC")))
+            statement.setDouble(6, answer.v.toDouble())
+            statement.setBoolean(7, answer.isCorrect())
             statement
         }
     }
 
-    override fun getComplexityOfTaskForUser(tgUserDto: TgUserDto): TaskComplexity? {
+    override fun getComplexityOfTaskForUser(TgUser: TgUser): TaskComplexity? {
         return template.query({ p0 ->
             val statement = p0.prepareStatement(USER_TASK_COMPLEXITY_GET)
-            statement.setLong(1, tgUserDto.id)
+            statement.setLong(1, TgUser.id)
             statement
         }, ResultSetExtractor {
             return@ResultSetExtractor if (it.next())
@@ -102,16 +122,16 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
         })
     }
 
-    override fun updateComplexityForUser(tgUserDto: TgUserDto, taskComplexity: TaskComplexity) {
+    override fun updateComplexityForUser(TgUser: TgUser, taskComplexity: TaskComplexity) {
         template.update {
             val statement = it.prepareStatement(USER_TASK_COMPLEXITY_UPDATE)
             statement.setString(1, taskComplexity.name)
-            statement.setLong(2, tgUserDto.id)
+            statement.setLong(2, TgUser.id)
             statement
         }
     }
 
-    override fun getUnResolvedTasks(userDto: TgUserDto, complexity: TaskComplexity, limit: Int): Collection<MathTask> {
+    override fun getUnResolvedTasks(userDto: TgUser, complexity: TaskComplexity, limit: Int): Collection<MathTask> {
         return template.query({ p0 ->
             val statement = p0.prepareStatement(USER_NOT_COMPLETE_TASKS)
             statement.setInt(1, userDto.id.toInt()) //todo migrate to int
@@ -123,20 +143,20 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
                 p0.getLong(1),
                 MathIntTaskDescription(p0.getString(2)),
                 TaskComplexity.valueOf(p0.getString(3)),
-                Answer(p0.getFloat(4)),
+                Answer.CorrectAnswer(p0.getFloat(4)),
                 p0.getBoolean(5)
             )
         }
     }
 
-    override fun isUserExists(userDto: TgUserDto): Boolean {
+    override fun isUserExists(userDto: TgUser): Boolean {
         return template.queryForObject(USER_SELECT, Long::class.java, userDto.firstName.v) > 0
     }
 
     override fun getAllActiveUsers(): List<ActiveUser> {
         return template.query(USER_GET_ALL_ACTIVE) { p0, _ ->
             ActiveUser(
-                TgUserDto(
+                TgUser(
                     p0.getLong(1),
                     false,
                     FirstName(p0.getString(2))

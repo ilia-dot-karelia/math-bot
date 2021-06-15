@@ -10,6 +10,7 @@ import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
 import ru.tg.pawaptz.chats.math.tasks.task.UserTaskCompletion
 import ru.tg.pawaptz.dao.PostgresDao
+import ru.tg.pawaptz.inlined.Answer
 
 @ExperimentalCoroutinesApi
 class UserTaskManagerImpl(
@@ -23,17 +24,23 @@ class UserTaskManagerImpl(
     private val userMap = mutableMapOf<ActiveUser, Sequence<MathTask>>()
 
     private val mtx = Mutex()
+    private lateinit var job: Job
 
     companion object {
         private val log = LoggerFactory.getLogger(UserTaskManager::class.java)
     }
 
-    init {
+    override fun stop() {
+        job.cancel("Externally stopped")
+    }
+
+    override fun start() {
         restoreActiveUsers()
-        CoroutineScope(Dispatchers.Default + SupervisorJob()).launch {
+        job = CoroutineScope(Dispatchers.Default).launch {
             log.info("Start listening for task completions")
             while (isActive && !channel.isClosedForReceive) {
-                onTaskComplete(channel.receive())
+                kotlin.runCatching { onTaskComplete(channel.receive()) }
+                    .onFailure { log.error("Failed to handle task completion event ${it.message}", it) }
             }
             log.info("Stopped listening for task completions")
         }
@@ -50,10 +57,10 @@ class UserTaskManagerImpl(
             return@withLock
         }
         log.info("Starting managing of user $activeUser")
-        complexityProvider.startTrackingComplexity(activeUser.tgUserDto)
-        val complexity = complexityProvider.appropriateComplexity(activeUser.tgUserDto)
+        complexityProvider.startTrackingComplexity(activeUser.TgUser)
+        val complexity = complexityProvider.appropriateComplexity(activeUser.TgUser)
         log.info("Using complexity $complexity for user $activeUser")
-        userMap[activeUser] = strategy.generate(activeUser.tgUserDto, complexity)
+        userMap[activeUser] = strategy.generate(activeUser.TgUser, complexity)
         sendNext(activeUser)
     }
 
@@ -63,7 +70,7 @@ class UserTaskManagerImpl(
         }
         log.info("Stop managing of the user $activeUser")
         userMap.remove(activeUser)
-        complexityProvider.stopTrackingComplexity(activeUser.tgUserDto)
+        complexityProvider.stopTrackingComplexity(activeUser.TgUser)
     }
 
     private suspend fun sendNext(activeUser: ActiveUser) {
@@ -76,7 +83,10 @@ class UserTaskManagerImpl(
         val userAnswer = upd.answer
         log.info("Task is complete by user $userAnswer, sending the next one")
         log.info("Saving user`s answer: $userAnswer")
-        dao.saveAnswer(taskId = upd.task.id(), userId = upd.activeUser.id(), userAnswer, upd.isSuccessful())
+        if (upd.answer !is Answer.NoAnswer) {
+            dao.saveAnswer(taskId = upd.task.id(), userId = upd.activeUser.id(), userAnswer)
+        }
+        delay(1000)
         sendNext(upd.activeUser)
     }
 }

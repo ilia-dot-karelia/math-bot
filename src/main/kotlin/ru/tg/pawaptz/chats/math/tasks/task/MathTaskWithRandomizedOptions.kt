@@ -15,17 +15,18 @@ class MathTaskWithRandomizedOptions(private val task: MathTask) : MathTaskWithOp
         used.add(correct)
         val rez = mutableListOf(*Array<TgPoll.TgQuizOption>(size) { cO })
 
-        val interval = (2 * correct).coerceAtLeast(size)
-        val corrIdx = Random.nextInt(0, size)
+        val interval = (2 * correct).coerceAtLeast(size) + 1
+        val correctPosition = Random.nextInt(0, size)
         var idx = 0
         while (idx < rez.size) {
-            if (idx == corrIdx) {
+            if (idx == correctPosition) {
                 idx++
                 continue
             }
             val option = Random.nextInt(0, interval)
             if (!used.contains(option)) {
                 rez[idx++] = TgPoll.TgQuizOption.IncorrectOption(option.toString())
+                used.add(option)
             }
         }
         return TgQuizOptions(rez)

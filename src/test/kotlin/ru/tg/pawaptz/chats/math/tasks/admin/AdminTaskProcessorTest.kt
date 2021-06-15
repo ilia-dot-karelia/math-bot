@@ -9,7 +9,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
-import ru.tg.api.transport.TgUserDto
+import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
 import ru.tg.pawaptz.dao.PostgresDao
 
@@ -17,7 +17,7 @@ internal class AdminTaskProcessorTest {
 
     private val channel = mockk<AdminMathTaskChannel>()
     private val pgDao = mockk<PostgresDao>()
-    private val adminUser = TgUserDto(1, false, FirstName("adm"))
+    private val adminUser = TgUser(1, false, FirstName("adm"))
     private val adminChatId = TgChatId(123)
     private val tp = AdminTaskProcessor(channel, pgDao, adminUser, adminChatId)
     private val testChannel = Channel<MathTask>()
@@ -34,7 +34,7 @@ internal class AdminTaskProcessorTest {
     @Test
     fun whenAdminTaskReceivedThenSaveToDb() {
         val tsk = mockk<MathTask>()
-        testChannel.offer(tsk)
+        testChannel.trySend(tsk)
         verify(timeout = 200) { pgDao.saveTask(tsk) }
     }
 }
