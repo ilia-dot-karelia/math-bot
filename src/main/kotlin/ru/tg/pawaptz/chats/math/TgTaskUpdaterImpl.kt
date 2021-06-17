@@ -1,6 +1,5 @@
 package ru.tg.pawaptz.chats.math
 
-import com.vdurmont.emoji.EmojiManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.BroadcastChannel
@@ -14,6 +13,8 @@ import ru.tg.api.inlined.TgText
 import ru.tg.api.poll.TgQuizOptions
 import ru.tg.api.transport.TgCallbackQuery
 import ru.tg.api.transport.TgUpdate
+import ru.tg.pawaptz.achievments.FunnySmiles
+import ru.tg.pawaptz.achievments.SadSmiles
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
 import ru.tg.pawaptz.chats.math.tasks.task.MathTaskWithRandomizedOptions
@@ -39,6 +40,7 @@ class TgTaskUpdaterImpl(private val tgBot: TgBot) : TgTaskUpdater {
         log.info("Sending the task: $task")
         val quizTask = MathTaskWithRandomizedOptions(task)
         val options = quizTask.options(4)
+        val subscription = tgBot.subscribe()
         val sentMessage = tgBot.sendMessage(activeUser.chatId, TgText(quizTask.mathTask().description().question())) {
             inlineKeyBoard {
                 createNewLine {
@@ -50,10 +52,11 @@ class TgTaskUpdaterImpl(private val tgBot: TgBot) : TgTaskUpdater {
         }
         log.info("Task is sent: $sentMessage")
         val res = withTimeoutOrNull(Duration.Companion.minutes(100000)) {
-            val upd = tgBot.subscribe().receive()
-            if (upd.callbackQuery?.message?.msgId ?: Long.MIN_VALUE == sentMessage.msgId) {
-                handleResponse(upd, activeUser, task, options)
-            }
+            lateinit var upd: TgUpdate
+            do {
+                upd = subscription.receive()
+            } while (upd.callbackQuery?.message?.msgId ?: Long.MIN_VALUE != sentMessage.msgId)
+            handleResponse(upd, activeUser, task, options)
         }
         if (res == null) {
             channel.trySend(UserTaskCompletion(activeUser, task, Answer.NoAnswer))
@@ -105,8 +108,8 @@ class TgTaskUpdaterImpl(private val tgBot: TgBot) : TgTaskUpdater {
 
     private fun chooseEmoji(userTaskCompletion: UserTaskCompletion): String {
         return if (userTaskCompletion.isSuccessful())
-            EmojiManager.getForAlias("wink").unicode
+            FunnySmiles.values().random().emoji().unicode
         else
-            EmojiManager.getForAlias("disappointed").unicode
+            SadSmiles.values().random().emoji().unicode
     }
 }

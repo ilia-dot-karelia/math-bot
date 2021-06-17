@@ -7,6 +7,8 @@ import org.springframework.boot.SpringBootConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.PropertySource
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.datasource.DataSourceTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import ru.tg.api.generic.TgBot
 import ru.tg.api.generic.TgBotImpl
 import ru.tg.api.inlined.FirstName
@@ -98,7 +100,7 @@ class Config {
     }
 
     @Bean
-    fun postgresDao(template: JdbcTemplate): PostgresDao {
+    fun postgresDao(template: JdbcTemplate, tm: DataSourceTransactionManager, tx: TransactionTemplate): PostgresDao {
         return PostgresDaoImpl(template)
     }
 }

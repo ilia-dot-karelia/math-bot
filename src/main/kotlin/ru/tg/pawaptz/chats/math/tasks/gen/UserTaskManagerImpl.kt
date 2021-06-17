@@ -52,15 +52,17 @@ class UserTaskManagerImpl(
         }
     }
 
-    override suspend fun startManageUserTasks(activeUser: ActiveUser) = mtx.withLock {
-        if (userMap.containsKey(activeUser)) {
-            return@withLock
+    override suspend fun startManageUserTasks(activeUser: ActiveUser) {
+        mtx.withLock {
+            if (userMap.containsKey(activeUser)) {
+                return@withLock
+            }
+            log.info("Starting managing of user $activeUser")
+            complexityProvider.startTrackingComplexity(activeUser.TgUser)
+            val complexity = complexityProvider.appropriateComplexity(activeUser.TgUser)
+            log.info("Using complexity $complexity for user $activeUser")
+            userMap[activeUser] = strategy.generate(activeUser.TgUser, complexity)
         }
-        log.info("Starting managing of user $activeUser")
-        complexityProvider.startTrackingComplexity(activeUser.TgUser)
-        val complexity = complexityProvider.appropriateComplexity(activeUser.TgUser)
-        log.info("Using complexity $complexity for user $activeUser")
-        userMap[activeUser] = strategy.generate(activeUser.TgUser, complexity)
         sendNext(activeUser)
     }
 
@@ -76,17 +78,17 @@ class UserTaskManagerImpl(
     private suspend fun sendNext(activeUser: ActiveUser) {
         val task: MathTask? = userMap[activeUser]?.first()
         if (task != null)
-            taskUpdater.update(activeUser, task)
+            CoroutineScope(Dispatchers.Default).launch { taskUpdater.update(activeUser, task) }
     }
 
     private suspend fun onTaskComplete(upd: UserTaskCompletion) = mtx.withLock {
         val userAnswer = upd.answer
         log.info("Task is complete by user $userAnswer, sending the next one")
-        log.info("Saving user`s answer: $userAnswer")
         if (upd.answer !is Answer.NoAnswer) {
             dao.saveAnswer(taskId = upd.task.id(), userId = upd.activeUser.id(), userAnswer)
+            log.info("Saved user`s answer: $userAnswer")
         }
-        delay(1000)
+        delay(5_000)
         sendNext(upd.activeUser)
     }
 }
