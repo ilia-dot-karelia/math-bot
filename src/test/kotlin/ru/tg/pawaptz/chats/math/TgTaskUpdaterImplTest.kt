@@ -59,6 +59,11 @@ internal class TgTaskUpdaterImplTest {
         }
     }
 
+    @Test
+    fun test2() {
+
+    }
+
     private fun genMathTask(): MathTask {
         return SimpleMathTask(
             15, MathIntTaskDescription("2+2"), EASY, Answer.CorrectAnswer(4f), true

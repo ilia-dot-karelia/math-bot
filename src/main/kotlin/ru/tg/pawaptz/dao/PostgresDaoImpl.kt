@@ -6,7 +6,6 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.ResultSetExtractor
 import org.springframework.jdbc.support.GeneratedKeyHolder
 import org.springframework.jdbc.support.KeyHolder
-import org.springframework.transaction.annotation.Transactional
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
 import ru.tg.api.transport.TgUser
@@ -17,12 +16,9 @@ import ru.tg.pawaptz.chats.math.tasks.task.SimpleMathTask
 import ru.tg.pawaptz.chats.math.tasks.task.TaskComplexity
 import ru.tg.pawaptz.inlined.Answer
 import java.sql.Statement
-import java.sql.Timestamp
-import java.time.Instant
-import java.util.*
 
 
-class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
+open class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
     companion object {
         private const val TASK_INSERT =
             "insert into math_tasks(question,answer,complexity,is_generated) values (?,?,CAST(? AS math_task_complexity),?) on conflict do nothing"
@@ -30,7 +26,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
         private const val USER_ANSWER_GET = "select user_answer from user_math_tasks_answers where task_id = ?"
         private const val USER_ANSWER_SAVE =
             "insert into user_math_tasks_answers (task_id, user_id, user_answer, is_correct, answer_time) " +
-                    "values (?, ?, ?, ?, ?) on conflict(task_id, user_id) do update set user_answer = ?, is_correct=?, answer_time=current_timestamp"
+                    "values (?, ?, ?, ?, current_timestamp) on conflict(task_id, user_id) do update set user_answer = ?, is_correct=?, answer_time=current_timestamp"
         private const val USER_SELECT = "select count(name) from users where name=?"
         private const val USER_SET_ACTIVITY = "update users set is_active=? where id=?"
         private const val USER_GET_ALL_ACTIVE = "select id, name, chat_id from users where is_active=true"
@@ -43,6 +39,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
                     "ans.user_answer is null or (ans.is_correct is false and current_timestamp - ans.answer_time > '00:10:00') limit ?"
     }
 
+
     override fun getUserAnswer(taskId: Long): Float? {
         return try {
             template.queryForObject(
@@ -52,6 +49,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
             null
         }
     }
+
 
     override fun createUserIfNotExist(
         user: TgUser,
@@ -68,6 +66,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
             }
     }
 
+
     override fun setUserActivityStatus(userDto: TgUser, isActive: Boolean) {
         template.update {
             val statement = it.prepareStatement(USER_SET_ACTIVITY)
@@ -76,6 +75,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
             statement
         }
     }
+
 
     override fun saveTask(task: MathTask): Long {
         val keyHolder: KeyHolder = GeneratedKeyHolder()
@@ -95,7 +95,7 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
             return key
     }
 
-    @Transactional
+
     override fun saveAnswer(taskId: Long, userId: Long, answer: Answer) {
         template.update {
             val statement = it.prepareStatement(USER_ANSWER_SAVE)
@@ -103,9 +103,8 @@ class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
             statement.setInt(2, userId.toInt()) //todo fixme
             statement.setDouble(3, answer.v.toDouble())
             statement.setBoolean(4, answer.isCorrect())
-            statement.setTimestamp(5, Timestamp.from(Instant.now()), Calendar.getInstance(TimeZone.getTimeZone("UTC")))
-            statement.setDouble(6, answer.v.toDouble())
-            statement.setBoolean(7, answer.isCorrect())
+            statement.setDouble(5, answer.v.toDouble())
+            statement.setBoolean(6, answer.isCorrect())
             statement
         }
     }
