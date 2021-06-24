@@ -16,6 +16,7 @@ import ru.tg.api.inlined.TgChatId
 import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.TgTaskUpdater
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
+import ru.tg.pawaptz.chats.math.tasks.TaskCosts
 import ru.tg.pawaptz.chats.math.tasks.task.MathIntTaskDescription
 import ru.tg.pawaptz.chats.math.tasks.task.SimpleMathTask
 import ru.tg.pawaptz.chats.math.tasks.task.TaskComplexity
@@ -34,8 +35,16 @@ internal class UserTaskManagerImplTest {
         every { it.subscribe() } returns channel.openSubscription()
     }
     private val usr = TgUser(1, false, FirstName("testUser"))
+    private val taskCosts = TaskCosts(mapOf(TaskComplexity.EASY to 10))
     private val userTskManager =
-        UserTaskManagerImpl(userComplexityProvider, taskGenStrategy, tgTaskUpdater, dao, channel.openSubscription())
+        UserTaskManagerImpl(
+            userComplexityProvider,
+            taskGenStrategy,
+            tgTaskUpdater,
+            dao,
+            channel.openSubscription(),
+            taskCosts
+        )
 
     @BeforeEach
     internal fun setUp() = runBlocking {

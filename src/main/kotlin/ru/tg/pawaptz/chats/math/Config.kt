@@ -14,6 +14,7 @@ import ru.tg.api.generic.TgBotImpl
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
 import ru.tg.api.transport.TgUser
+import ru.tg.pawaptz.chats.math.tasks.TaskCosts
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminMathTaskChannel
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminMathTaskReceiver
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminTaskProcessor
@@ -35,14 +36,16 @@ class Config {
     fun userManager(
         complexityProvider: UserComplexityProvider,
         tgTaskUpdater: TgTaskUpdater,
-        dao: PostgresDao
+        dao: PostgresDao,
+        taskCosts: TaskCosts
     ): UserTaskManager {
         return UserTaskManagerImpl(
             complexityProvider,
             GenWhenNoNextTask(dao),
             tgTaskUpdater,
             dao,
-            tgTaskUpdater.subscribe()
+            tgTaskUpdater.subscribe(),
+            taskCosts
         )
     }
 
@@ -102,5 +105,10 @@ class Config {
     @Bean
     fun postgresDao(template: JdbcTemplate, tm: DataSourceTransactionManager, tx: TransactionTemplate): PostgresDao {
         return PostgresDaoImpl(template)
+    }
+
+    @Bean
+    fun taskCosts(postgresDao: PostgresDao): TaskCosts {
+        return TaskCosts(postgresDao.readTaskCosts())
     }
 }

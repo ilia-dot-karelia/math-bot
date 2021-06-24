@@ -47,10 +47,12 @@ class UserSubscriptionHandler(
         tgChatId: TgChatId
     ) = kotlin.runCatching {
         dao.createUserIfNotExist(user, tgChatId)
+        dao.createUserScoresIfNotExist(user)
         val activeUser = ActiveUser(user, tgChatId)
         if (msg.isSubscribeMessage()) {
             dao.setUserActive(user)
-            userTaskManager.startManageUserTasks(activeUser)
+            val userScore = dao.getUserScore(user) ?: throw IllegalStateException("Scores not init")
+            userTaskManager.startManageUserTasks(activeUser, userScore)
         } else if (msg.isUnSubscribeMessage()) {
             dao.setUserInActive(user)
             userTaskManager.completeUserTaskManagement(activeUser)

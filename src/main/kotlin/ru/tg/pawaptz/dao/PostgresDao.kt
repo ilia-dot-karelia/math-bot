@@ -6,8 +6,11 @@ import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
 import ru.tg.pawaptz.chats.math.tasks.task.TaskComplexity
 import ru.tg.pawaptz.inlined.Answer
+import ru.tg.pawaptz.inlined.Score
 
 interface PostgresDao {
+
+    fun readTaskCosts(): Map<TaskComplexity, Int>
 
     fun createUserIfNotExist(user: TgUser, chatId: TgChatId)
 
@@ -27,8 +30,15 @@ interface PostgresDao {
 
     fun isUserExists(userDto: TgUser): Boolean
 
-    fun getAllActiveUsers(): List<ActiveUser>
+    fun getAllActiveUsers(): List<Pair<ActiveUser, Score>>
+
+    fun addUserScore(userDto: TgUser, scores: Score)
+
+    fun createUserScoresIfNotExist(userDto: TgUser)
+
+    fun getUserScore(userDto: TgUser): Score?
 
     fun setUserActive(TgUser: TgUser) = setUserActivityStatus(TgUser, true)
+
     fun setUserInActive(TgUser: TgUser) = setUserActivityStatus(TgUser, false)
 }

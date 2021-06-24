@@ -2,6 +2,8 @@
     drop table if exists users cascade;
     drop table if exists user_task_complexity cascade;
     drop table if exists user_math_tasks_answers cascade;
+    drop table if exists user_scores cascade;
+    drop table if exists task_cost cascade;
     drop type if exists math_task_complexity cascade;
 
     CREATE TYPE math_task_complexity AS ENUM ('EASY', 'MIDDLE', 'ADVANCED', 'HARD');
@@ -13,6 +15,24 @@
         complexity math_task_complexity,
         is_generated boolean
     );
+
+    create table if not exists task_cost (
+        complexity math_task_complexity unique,
+        cost smallint
+    );
+
+    insert into task_cost(complexity, cost) values ('EASY', 10);
+    insert into task_cost(complexity, cost) values ('MIDDLE', 15);
+    insert into task_cost(complexity, cost) values ('ADVANCED', 20);
+    insert into task_cost(complexity, cost) values ('HARD', 25);
+
+    create table if not exists user_scores (
+        user_id int unique,
+        score integer default 0,
+        CONSTRAINT user_id_constraint
+            FOREIGN KEY(user_id)
+            REFERENCES users(id)
+    )
 
     create table if not exists users(
         id int unique,

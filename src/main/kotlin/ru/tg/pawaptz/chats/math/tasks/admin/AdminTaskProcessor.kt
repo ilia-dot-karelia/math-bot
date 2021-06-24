@@ -23,6 +23,7 @@ class AdminTaskProcessor(
             log.error("Exception in thread ${t.name}: ${e.message}", e)
         }
         postgresDao.createUserIfNotExist(adminUser, adminChatId)
+        postgresDao.createUserScoresIfNotExist(adminUser)
         log.info("Subscribing to admin task channel update")
         CoroutineScope(Dispatchers.Default).launch {
             val channel = adminMathTaskChannel.subscribe()
