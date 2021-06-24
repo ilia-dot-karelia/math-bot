@@ -7,10 +7,12 @@ import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 import ru.tg.pawaptz.chats.math.TgTaskUpdater
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
+import ru.tg.pawaptz.chats.math.tasks.TaskCosts
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
 import ru.tg.pawaptz.chats.math.tasks.task.UserTaskCompletion
 import ru.tg.pawaptz.dao.PostgresDao
 import ru.tg.pawaptz.inlined.Answer
+import ru.tg.pawaptz.inlined.Score
 
 @ExperimentalCoroutinesApi
 class UserTaskManagerImpl(
@@ -18,10 +20,11 @@ class UserTaskManagerImpl(
     private val strategy: TaskGenStrategy,
     private val taskUpdater: TgTaskUpdater,
     private val dao: PostgresDao,
-    private val channel: ReceiveChannel<UserTaskCompletion>
+    private val channel: ReceiveChannel<UserTaskCompletion>,
+    private val taskCosts: TaskCosts
 ) : UserTaskManager {
 
-    private val userMap = mutableMapOf<ActiveUser, Sequence<MathTask>>()
+    private val userMap = mutableMapOf<ActiveUser, UserContext>()
 
     private val mtx = Mutex()
     private lateinit var job: Job
@@ -48,11 +51,11 @@ class UserTaskManagerImpl(
 
     private fun restoreActiveUsers() = runBlocking {
         dao.getAllActiveUsers().forEach {
-            startManageUserTasks(it)
+            startManageUserTasks(it.first, it.second)
         }
     }
 
-    override suspend fun startManageUserTasks(activeUser: ActiveUser) {
+    override suspend fun startManageUserTasks(activeUser: ActiveUser, score: Score) {
         mtx.withLock {
             if (userMap.containsKey(activeUser)) {
                 return@withLock
@@ -61,7 +64,7 @@ class UserTaskManagerImpl(
             complexityProvider.startTrackingComplexity(activeUser.TgUser)
             val complexity = complexityProvider.appropriateComplexity(activeUser.TgUser)
             log.info("Using complexity $complexity for user $activeUser")
-            userMap[activeUser] = strategy.generate(activeUser.TgUser, complexity)
+            userMap[activeUser] = UserContext(score, complexity, dao, activeUser.TgUser, strategy)
         }
         sendNext(activeUser)
     }
@@ -76,9 +79,9 @@ class UserTaskManagerImpl(
     }
 
     private suspend fun sendNext(activeUser: ActiveUser) {
-        val task: MathTask? = userMap[activeUser]?.first()
+        val task: MathTask? = userMap[activeUser]?.nextTask()
         if (task != null)
-            CoroutineScope(Dispatchers.Default).launch { taskUpdater.update(activeUser, task) }
+            CoroutineScope(Dispatchers.Default).launch { taskUpdater.sendTaskAndWaitAnswer(activeUser, task) }
     }
 
     private suspend fun onTaskComplete(upd: UserTaskCompletion) = mtx.withLock {
@@ -87,8 +90,11 @@ class UserTaskManagerImpl(
         if (upd.answer !is Answer.NoAnswer) {
             dao.saveAnswer(taskId = upd.task.id(), userId = upd.activeUser.id(), userAnswer)
             log.info("Saved user`s answer: $userAnswer")
+            val cost = taskCosts.getCost(upd.task.complexity())
+            val scoresForTask = Score(if (userAnswer.isCorrect()) cost else -cost)
+            userMap[upd.activeUser]?.addScores(scoresForTask)
         }
-        delay(5_000)
+        delay(3_000)
         sendNext(upd.activeUser)
     }
 }

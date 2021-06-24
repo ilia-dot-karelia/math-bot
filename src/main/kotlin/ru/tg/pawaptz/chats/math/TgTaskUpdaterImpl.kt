@@ -36,7 +36,7 @@ class TgTaskUpdaterImpl(private val tgBot: TgBot) : TgTaskUpdater {
     private val channel = BroadcastChannel<UserTaskCompletion>(800)
 
     @ExperimentalCoroutinesApi
-    override suspend fun update(activeUser: ActiveUser, task: MathTask) {
+    override suspend fun sendTaskAndWaitAnswer(activeUser: ActiveUser, task: MathTask) {
         log.info("Sending the task: $task")
         val quizTask = MathTaskWithRandomizedOptions(task)
         val options = quizTask.options(4)

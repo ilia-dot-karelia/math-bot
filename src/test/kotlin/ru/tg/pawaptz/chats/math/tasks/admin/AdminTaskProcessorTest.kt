@@ -27,7 +27,8 @@ internal class AdminTaskProcessorTest {
     internal fun setUp() {
         every { channel.subscribe() }.returns(testChannel)
         every { pgDao.saveTask(any()) }.returns(1234)
-        every { pgDao.createUserIfNotExist(adminUser, adminChatId) }.returns(Unit)
+        every { pgDao.createUserScoresIfNotExist(adminUser) } returns Unit
+        every { pgDao.createUserIfNotExist(adminUser, adminChatId) } returns Unit
         tp.start()
     }
 

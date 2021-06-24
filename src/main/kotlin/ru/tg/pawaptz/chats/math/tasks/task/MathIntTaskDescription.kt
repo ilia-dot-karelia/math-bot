@@ -6,7 +6,7 @@ class MathIntTaskDescription(private val description: String) : TaskDescription 
 
     private val regex = ".0(\$|\\s)".toRegex()
     override fun question(): String {
-        return description
+        return description.replace(regex, " ").trim()
     }
 
     override fun withAnswer(answer: Answer): String {

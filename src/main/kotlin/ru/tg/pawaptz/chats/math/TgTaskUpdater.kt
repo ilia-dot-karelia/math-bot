@@ -7,7 +7,7 @@ import ru.tg.pawaptz.chats.math.tasks.task.UserTaskCompletion
 
 interface TgTaskUpdater {
 
-    suspend fun update(activeUser: ActiveUser, task: MathTask)
+    suspend fun sendTaskAndWaitAnswer(activeUser: ActiveUser, task: MathTask)
 
     fun subscribe(): ReceiveChannel<UserTaskCompletion>
 }

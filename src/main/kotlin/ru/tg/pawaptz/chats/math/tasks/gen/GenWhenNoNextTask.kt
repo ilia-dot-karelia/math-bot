@@ -14,24 +14,21 @@ class GenWhenNoNextTask(private val dao: PostgresDao) : TaskGenStrategy {
     }
 
     override fun generate(userDto: TgUser, complexity: TaskComplexity): Sequence<MathTask> = sequence {
-
-        while (true) {
-            val unResolvedTasks = dao.getUnResolvedTasks(userDto, complexity, 10)
-            if (unResolvedTasks.isEmpty()) {
-                val task = nextRnd(complexity)
-                kotlin.runCatching {
-                    val taskId = task.let {
-                        dao.saveTask(it)
-                    }
-                    if (dao.getUserAnswer(taskId) != task.answer().v) {
-                        log.info("Yielding the next random task $taskId")
-                        yield(task.replaceId(taskId))
-                    }
-                }.onFailure { log.error(it.message, it); }
-            } else {
-                log.info("Yielding unresolved tasks, example ${unResolvedTasks.first().id()}")
-                yieldAll(unResolvedTasks)
-            }
+        val unResolvedTasks = dao.getUnResolvedTasks(userDto, complexity, 10)
+        if (unResolvedTasks.isEmpty()) {
+            val task = nextRnd(complexity)
+            kotlin.runCatching {
+                val taskId = task.let {
+                    dao.saveTask(it)
+                }
+                if (dao.getUserAnswer(taskId) != task.answer().v) {
+                    log.info("Yielding the next random task $taskId")
+                    yield(task.replaceId(taskId))
+                }
+            }.onFailure { log.error(it.message, it); }
+        } else {
+            log.info("Yielding unresolved tasks, example ${unResolvedTasks.first().id()}")
+            yieldAll(unResolvedTasks)
         }
     }
 

@@ -19,6 +19,7 @@ import ru.tg.api.transport.TgUser
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.gen.UserTaskManager
 import ru.tg.pawaptz.dao.PostgresDao
+import ru.tg.pawaptz.inlined.Score
 
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
@@ -42,14 +43,16 @@ internal class UserSubscriptionHandlerTest {
             every { it.chat }.returns(TgChat(10, ChatType("t"), null, null, null, null))
         }
         dao.also {
-            every { it.createUserIfNotExist(any(), TgChatId(any())) }.returns(Unit)
-            every { it.setUserActive(usr) }.returns(Unit)
-            every { it.setUserInActive(usr) }.returns(Unit)
-            every { it.setUserActivityStatus(usr, any()) }.returns(Unit)
+            every { it.createUserIfNotExist(any(), TgChatId(any())) } returns Unit
+            every { it.setUserActive(usr) } returns Unit
+            every { it.setUserInActive(usr) } returns Unit
+            every { it.setUserActivityStatus(usr, any()) } returns Unit
+            every { it.createUserScoresIfNotExist(usr) } returns Unit
+            every { it.getUserScore(usr) } returns Score.ZERO
         }
         userTaskManager.also {
             coEvery { it.completeUserTaskManagement(ActiveUser(usr, tgChatId)) } returns Unit
-            coEvery { it.startManageUserTasks(ActiveUser(usr, tgChatId)) } returns Unit
+            coEvery { it.startManageUserTasks(ActiveUser(usr, tgChatId), Score(any())) } returns Unit
         }
         handler.start()
     }
@@ -66,7 +69,28 @@ internal class UserSubscriptionHandlerTest {
 
         verify(timeout = 100) { dao.createUserIfNotExist(usr, tgChatId) }
         verify { dao.setUserActive(usr) }
-        coVerify { userTaskManager.startManageUserTasks(ActiveUser(usr, tgChatId)) }
+        coVerify { userTaskManager.startManageUserTasks(ActiveUser(usr, tgChatId), Score.ZERO) }
+    }
+
+    @Test
+    fun whenUserSubscribeThenCreateScoresItIfNeedAndSubscribe() = runBlocking {
+        every { messageDto.text } returns UserSubscriptionHandler.Companion.subscribe
+        channel.send(updateDto)
+
+        verify(timeout = 100) { dao.createUserScoresIfNotExist(usr) }
+        verify { dao.setUserActive(usr) }
+        coVerify { userTaskManager.startManageUserTasks(ActiveUser(usr, tgChatId), Score.ZERO) }
+    }
+
+    @Test
+    fun whenUserHasScoresThenUseTheScoresItIfNeedAndSubscribe() = runBlocking {
+        every { messageDto.text } returns UserSubscriptionHandler.Companion.subscribe
+        every { dao.getUserScore(usr) } returns Score(100)
+        channel.send(updateDto)
+
+        verify(timeout = 100) { dao.createUserScoresIfNotExist(usr) }
+        verify { dao.setUserActive(usr) }
+        coVerify { userTaskManager.startManageUserTasks(ActiveUser(usr, tgChatId), Score(100)) }
     }
 
     @Test

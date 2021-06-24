@@ -9,6 +9,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.BroadcastChannel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -52,16 +53,15 @@ internal class TgTaskUpdaterImplTest {
     @Test
     fun whenNewTaskThenSendItToTheUsersChat() = runBlocking {
         val chatId = TgChatId(100)
-        updater.update(ActiveUser(TgUser(123, false, FirstName("test")), chatId), genMathTask())
+        val job = launch {
+            updater.sendTaskAndWaitAnswer(ActiveUser(TgUser(123, false, FirstName("test")), chatId), genMathTask())
+        }
 
         coVerify(timeout = 300) {
             bot.sendMessage(chatId, TgText(any()), any())
         }
-    }
 
-    @Test
-    fun test2() {
-
+        job.cancel()
     }
 
     private fun genMathTask(): MathTask {

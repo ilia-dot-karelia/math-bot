@@ -69,25 +69,26 @@ class CountingTaskComplexityProvider(
     private suspend fun onTaskComplete(task: MathTask, userDto: TgUser, userAnswer: Answer) =
         withContext(userContext) {
             userStat[userDto]?.also {
-                kotlin.runCatching { updateUserScores(task, it, userAnswer, userDto) }
+                kotlin.runCatching { updateUserSuccess(task, it, userAnswer, userDto) }
                     .onFailure { log.error(it.message, it) }
             }
             Unit
         }
 
-    private fun updateUserScores(
+    private fun updateUserSuccess(
         task: MathTask,
-        it: UserStat,
+        userStat: UserStat,
         userAnswer: Answer,
         userDto: TgUser
     ) {
         log.info("User complete the task $task, refreshing complexity")
-        val prev = it.complexity
-        val newComplexity = if (task.answer() == userAnswer) {
-            it.markSuccess()
+        val prev = userStat.complexity
+        val newComplexity = if (userAnswer.isCorrect()) {
+            userStat.markSuccess()
         } else {
-            it.markFail()
+            userStat.markFail()
         }
+        log.debug("User stat = ${this.userStat}")
         if (prev != newComplexity) {
             log.info("Updating complexity for the user $userDto from $prev to $newComplexity")
             dao.updateComplexityForUser(userDto, newComplexity)
@@ -126,5 +127,11 @@ class CountingTaskComplexityProvider(
             }
             return complexity
         }
+
+        override fun toString(): String {
+            return "UserStat(complexity=$complexity, total=$total, success=$success, percent of success = ${percentOfSuccess()})"
+        }
+
+
     }
 }

@@ -30,6 +30,11 @@ sealed class Answer(val v: Float) {
     class CorrectAnswer(v: Float) : Answer(v) {
         override fun isCorrect(): Boolean = true
     }
+}
 
-
+@JvmInline
+value class Score(val v: Int) {
+    companion object {
+        val ZERO = Score(0)
+    }
 }
