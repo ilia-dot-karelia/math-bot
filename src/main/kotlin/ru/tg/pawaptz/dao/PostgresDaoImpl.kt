@@ -11,6 +11,7 @@ import org.springframework.jdbc.support.KeyHolder
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
 import ru.tg.api.transport.TgUser
+import ru.tg.pawaptz.achievments.Mood
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathIntTaskDescription
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
@@ -26,7 +27,7 @@ open class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
         private var log = LoggerFactory.getLogger(PostgresDaoImpl::class.java)
 
         private const val TASK_INSERT =
-            "insert into math_tasks(question,answer,complexity,is_generated) values (?,?,CAST(? AS math_task_complexity),?) on conflict do nothing"
+            "insert into math_tasks(question,answer,complexity,is_generated) values (?,?,CAST(? AS math_task_complexity),?) on conflict(question) do update set question=EXCLUDED.question returning id"
         private const val USER_INSERT = "insert into users(id, name, chat_id, is_active) values (?,?,?,?)"
         private const val USER_ANSWER_GET = "select user_answer from user_math_tasks_answers where task_id = ?"
         private const val USER_ANSWER_SAVE =
@@ -38,6 +39,8 @@ open class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
             "select id, name, chat_id, score from users left join user_scores s on s.user_id = id where is_active=true"
         private const val USER_TASK_COMPLEXITY_GET = "select complexity from user_task_complexity where id=?"
         private const val USER_TASK_COMPLEXITY_UPDATE = "update user_task_complexity set complexity=? where id=?"
+        private const val USER_TASK_COMPLEXITY_INSERT =
+            "insert into user_task_complexity values(?, CAST(? AS math_task_complexity)) on conflict do nothing"
         private const val USER_NOT_COMPLETE_TASKS =
             "with user_answers as (select * from user_math_tasks_answers where user_id=?)\n" +
                     "select tsk.id, tsk.question, tsk.complexity, tsk.answer, tsk.is_generated from math_tasks tsk left join user_answers ans on tsk.id = ans.task_id\n" +
@@ -45,8 +48,10 @@ open class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
                     "ans.user_answer is null or (ans.is_correct is false and current_timestamp - ans.answer_time > '00:10:00') limit ?"
         private const val TASK_COST_SELECT = "select complexity, cost from task_cost"
         private const val SCORES_INIT_FOR_USER = "insert into user_scores values (?) on conflict do nothing"
-        private const val SCORES_UPDATE = "update user_scores s set score = score + 10 where s.user_id = ?"
+        private const val SCORES_UPDATE = "update user_scores set score = score + ? where user_id = ? returning score"
         private const val SCORES_GET = "select score from user_scores where user_id = ?"
+        private const val ACHIEVE_MESSAGE =
+            "select message from achieve_messages where mood=CAST(? AS achievement_message_mood) order by random() limit 1"
     }
 
     override fun getUserAnswer(taskId: Long): Float? {
@@ -92,22 +97,25 @@ open class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
         }
     }
 
-    override fun saveTask(task: MathTask): Long {
+    override fun saveTask(task: MathTask, isGenerated: Boolean): Long {
         val keyHolder: KeyHolder = GeneratedKeyHolder()
         template.update({
             val statement = it.prepareStatement(TASK_INSERT, Statement.RETURN_GENERATED_KEYS)
             statement.setString(1, task.description().question())
             statement.setDouble(2, task.answer().v.toDouble())
             statement.setString(3, task.complexity().name)
-            statement.setBoolean(4, false)
+            statement.setBoolean(4, isGenerated)
             statement
         }, keyHolder)
 
         val key: Long? = keyHolder.keys?.get("id") as Long?
         if (key == null) {
+            log.info("Task $task is already exists in the database")
             throw RecoverableDataAccessException("Primary key was not generated for task: $task")
-        } else
+        } else {
+            log.info("Task $task is saved in the database")
             return key
+        }
     }
 
     override fun saveAnswer(taskId: Long, userId: Long, answer: Answer) {
@@ -186,21 +194,36 @@ open class PostgresDaoImpl(private val template: JdbcTemplate) : PostgresDao {
         }
     }
 
-    override fun getUserScore(userDto: TgUser): Score? =
-        template.queryForObject(SCORES_GET) { p0, _ -> Score(p0.getInt(1)) }
-
-
-    override fun addUserScore(userDto: TgUser, scores: Score) {
-        val cnt = template.update {
-            val statement = it.prepareStatement(SCORES_UPDATE)
-            statement.setInt(1, scores.v)
-            statement.setLong(2, userDto.id)
+    override fun initUserComplexityForUser(TgUser: TgUser, complexity: TaskComplexity) {
+        template.update {
+            val statement = it.prepareStatement(USER_TASK_COMPLEXITY_INSERT)
+            statement.setLong(1, TgUser.id)
+            statement.setString(2, complexity.name)
             statement
         }
-        if (cnt == 0) {
+    }
+
+    override fun getUserScore(userDto: TgUser): Score? =
+        template.queryForObject(SCORES_GET, arrayOf(userDto.id)) { p0, _ -> Score(p0.getInt(1)) }
+
+
+    override fun getAchieveMessage(mood: Mood): String {
+        return template.queryForObject(
+            ACHIEVE_MESSAGE, String::class.java, mood.name
+        )
+    }
+
+    override fun addUserScore(userDto: TgUser, scores: Score): Score {
+        val res = template.query(
+            { con -> con.prepareStatement(SCORES_UPDATE) },
+            { ps -> ps.setInt(1, scores.v); ps.setLong(2, userDto.id) },
+            { rs -> rs.next(); rs.getInt(1) }
+        )
+        log.info("Updated scores for user $userDto, $scores")
+        return if (res == null) {
             log.warn("Unable to update scores for user $userDto, user not found")
-        }
-        log.info("Updated scores for user $userDto, $scores, affected: $cnt")
+            Score.ZERO
+        } else Score(res)
     }
 
     private fun String?.toTaskComplexity(): TaskComplexity? {

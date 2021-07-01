@@ -37,10 +37,37 @@ class TgTaskUpdaterImpl(private val tgBot: TgBot) : TgTaskUpdater {
 
     @ExperimentalCoroutinesApi
     override suspend fun sendTaskAndWaitAnswer(activeUser: ActiveUser, task: MathTask) {
+        kotlin.runCatching {
+            sendAndWaitInternally(task, activeUser)
+        }.onFailure {
+            log.error("Error waiting for the user answer for task: $task, ${it.message}", it)
+        }.recover {
+            channel.trySend(UserTaskCompletion(activeUser, task, Answer.NoAnswer))
+        }
+    }
+
+    private suspend fun sendAndWaitInternally(
+        task: MathTask,
+        activeUser: ActiveUser
+    ) {
         log.info("Sending the task: $task")
         val quizTask = MathTaskWithRandomizedOptions(task)
         val options = quizTask.options(4)
         val subscription = tgBot.subscribe()
+        try {
+            sendAndWait(activeUser, quizTask, options, subscription, task)
+        } finally {
+            subscription.cancel()
+        }
+    }
+
+    private suspend fun sendAndWait(
+        activeUser: ActiveUser,
+        quizTask: MathTaskWithRandomizedOptions,
+        options: TgQuizOptions,
+        subscription: ReceiveChannel<TgUpdate>,
+        task: MathTask
+    ) {
         val sentMessage = tgBot.sendMessage(activeUser.chatId, TgText(quizTask.mathTask().description().question())) {
             inlineKeyBoard {
                 createNewLine {
@@ -50,9 +77,9 @@ class TgTaskUpdaterImpl(private val tgBot: TgBot) : TgTaskUpdater {
                 }
             }
         }
-        log.info("Task is sent: $sentMessage")
-        val res = withTimeoutOrNull(Duration.Companion.minutes(100000)) {
+        val res = withTimeoutOrNull(Duration.minutes(100000)) {
             lateinit var upd: TgUpdate
+            log.info("Task is sent: $sentMessage, waiting for the answer")
             do {
                 upd = subscription.receive()
             } while (upd.callbackQuery?.message?.msgId ?: Long.MIN_VALUE != sentMessage.msgId)
@@ -61,6 +88,7 @@ class TgTaskUpdaterImpl(private val tgBot: TgBot) : TgTaskUpdater {
         if (res == null) {
             channel.trySend(UserTaskCompletion(activeUser, task, Answer.NoAnswer))
         }
+
     }
 
     private suspend fun handleResponse(

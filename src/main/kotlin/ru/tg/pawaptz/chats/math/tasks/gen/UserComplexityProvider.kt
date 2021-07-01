@@ -7,6 +7,5 @@ interface UserComplexityProvider {
 
     suspend fun startTrackingComplexity(TgUser: TgUser)
     suspend fun stopTrackingComplexity(TgUser: TgUser)
-
-    suspend fun appropriateComplexity(TgUser: TgUser): TaskComplexity
+    suspend fun userComplexity(TgUser: TgUser): TaskComplexity
 }

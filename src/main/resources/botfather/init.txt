@@ -1,0 +1,3 @@
+subscribe - Subscribe for  math tasks updates
+unsubscribe - i don`t want to receive math tasks any more
+scores - show me my scores

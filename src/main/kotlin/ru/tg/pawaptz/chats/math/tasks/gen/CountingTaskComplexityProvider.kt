@@ -61,7 +61,7 @@ class CountingTaskComplexityProvider(
     }
 
     @ObsoleteCoroutinesApi
-    override suspend fun appropriateComplexity(TgUser: TgUser): TaskComplexity = withContext(userContext) {
+    override suspend fun userComplexity(TgUser: TgUser): TaskComplexity = withContext(userContext) {
         userStat[TgUser]?.complexity ?: getComplexityForUser(TgUser) ?: TaskComplexity.EASY
     }
 

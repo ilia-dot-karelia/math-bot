@@ -37,4 +37,16 @@ value class Score(val v: Int) {
     companion object {
         val ZERO = Score(0)
     }
+
+    operator fun plus(other: Score): Score {
+        return Score(v + other.v)
+    }
+
+    operator fun times(other: Int): Score {
+        return Score(v * other)
+    }
+
+    override fun toString(): String {
+        return "$v"
+    }
 }

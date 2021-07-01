@@ -56,7 +56,7 @@ internal class CountingTaskComplexityProviderTest {
         complexityProvider.startTrackingComplexity(user)
 
         val task = SimpleMathTask(1, MathIntTaskDescription(""), answer = Answer.CorrectAnswer(20f))
-        assertThat(complexityProvider.appropriateComplexity(user)).isSameAs(start)
+        assertThat(complexityProvider.userComplexity(user)).isSameAs(start)
         repeat(100) {
             channel.send(UserTaskCompletion(ActiveUser(user, TgChatId(10)), task, Answer.CorrectAnswer(20f)))
         }

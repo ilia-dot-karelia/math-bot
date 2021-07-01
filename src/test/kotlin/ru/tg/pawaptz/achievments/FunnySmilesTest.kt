@@ -1,9 +1,11 @@
 package ru.tg.pawaptz.achievments
 
 import com.vdurmont.emoji.EmojiManager
+import kotlinx.coroutines.ObsoleteCoroutinesApi
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
+@ObsoleteCoroutinesApi
 internal class FunnySmilesTest {
 
     @Test
@@ -12,4 +14,5 @@ internal class FunnySmilesTest {
             assertThat(EmojiManager.getForAlias(it.alias)).describedAs(it.name).isNotNull
         }
     }
+
 }

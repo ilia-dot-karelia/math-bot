@@ -14,11 +14,15 @@ import ru.tg.api.generic.TgBotImpl
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
 import ru.tg.api.transport.TgUser
+import ru.tg.pawaptz.achievments.AchievementMessageProvider
+import ru.tg.pawaptz.achievments.AchievementMessageProviderImpl
+import ru.tg.pawaptz.achievments.AchievementSender
+import ru.tg.pawaptz.achievments.AchievementSenderImpl
 import ru.tg.pawaptz.chats.math.tasks.TaskCosts
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminMathTaskChannel
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminMathTaskReceiver
 import ru.tg.pawaptz.chats.math.tasks.admin.AdminTaskProcessor
-import ru.tg.pawaptz.chats.math.tasks.cmd.UserSubscriptionHandler
+import ru.tg.pawaptz.chats.math.tasks.cmd.UserCommandHandler
 import ru.tg.pawaptz.chats.math.tasks.gen.*
 import ru.tg.pawaptz.dao.PostgresDao
 import ru.tg.pawaptz.dao.PostgresDaoImpl
@@ -37,7 +41,8 @@ class Config {
         complexityProvider: UserComplexityProvider,
         tgTaskUpdater: TgTaskUpdater,
         dao: PostgresDao,
-        taskCosts: TaskCosts
+        taskCosts: TaskCosts,
+        achievementSender: AchievementSender
     ): UserTaskManager {
         return UserTaskManagerImpl(
             complexityProvider,
@@ -45,7 +50,8 @@ class Config {
             tgTaskUpdater,
             dao,
             tgTaskUpdater.subscribe(),
-            taskCosts
+            taskCosts,
+            achievementSender
         )
     }
 
@@ -90,8 +96,8 @@ class Config {
         tgBot: TgBot,
         postgresDao: PostgresDao,
         userTaskManager: UserTaskManager
-    ): UserSubscriptionHandler {
-        return UserSubscriptionHandler(tgBot.subscribe(), postgresDao, userTaskManager)
+    ): UserCommandHandler {
+        return UserCommandHandler(tgBot.subscribe(), postgresDao, userTaskManager, tgBot)
     }
 
     @Bean
@@ -110,5 +116,20 @@ class Config {
     @Bean
     fun taskCosts(postgresDao: PostgresDao): TaskCosts {
         return TaskCosts(postgresDao.readTaskCosts())
+    }
+
+    @Bean
+    fun achieveMessageProvider(postgresDao: PostgresDao): AchievementMessageProvider {
+        return AchievementMessageProviderImpl(postgresDao)
+    }
+
+    @Bean
+    fun achievementSender(
+        tgBot: TgBot,
+        complexityProvider: UserComplexityProvider,
+        taskCosts: TaskCosts,
+        achievementMessageProvider: AchievementMessageProvider
+    ): AchievementSender {
+        return AchievementSenderImpl(3, tgBot, complexityProvider, taskCosts, achievementMessageProvider)
     }
 }
