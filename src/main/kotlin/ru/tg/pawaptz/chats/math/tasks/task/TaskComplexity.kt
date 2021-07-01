@@ -20,7 +20,7 @@ enum class TaskComplexity : ComplexityAwareNumberGenerator {
             return Random.Default.nextInt(20, 101).toFloat()
         }
     },
-    HIGH {
+    HARD {
         override fun generate(): Float {
             return Random.Default.nextInt(100, 10_000).toFloat()
         }
@@ -30,8 +30,8 @@ enum class TaskComplexity : ComplexityAwareNumberGenerator {
         return when (this) {
             EASY -> MIDDLE
             MIDDLE -> ADVANCED
-            ADVANCED -> HIGH
-            HIGH -> HIGH
+            ADVANCED -> HARD
+            HARD -> HARD
         }
     }
 }

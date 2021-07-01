@@ -3,7 +3,9 @@ package ru.tg.pawaptz.chats.math.tasks.cmd
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
 import org.slf4j.LoggerFactory
+import ru.tg.api.generic.TgBot
 import ru.tg.api.inlined.TgChatId
+import ru.tg.api.inlined.TgText
 import ru.tg.api.transport.TgMessage
 import ru.tg.api.transport.TgUpdate
 import ru.tg.api.transport.TgUser
@@ -11,16 +13,18 @@ import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.gen.UserTaskManager
 import ru.tg.pawaptz.dao.PostgresDao
 
-class UserSubscriptionHandler(
+class UserCommandHandler(
     private val channel: ReceiveChannel<TgUpdate>,
     private val dao: PostgresDao,
-    private val userTaskManager: UserTaskManager
+    private val userTaskManager: UserTaskManager,
+    private val bot: TgBot
 ) {
 
     companion object {
-        private val log = LoggerFactory.getLogger(UserSubscriptionHandler::class.java)
+        private val log = LoggerFactory.getLogger(UserCommandHandler::class.java)
         const val subscribe = "/subscribe"
         const val unSubscribe = "/unsubscribe"
+        const val scores = "/scores"
     }
 
     @ExperimentalCoroutinesApi
@@ -51,11 +55,18 @@ class UserSubscriptionHandler(
         val activeUser = ActiveUser(user, tgChatId)
         if (msg.isSubscribeMessage()) {
             dao.setUserActive(user)
+            dao.initUserComplexityForUser(user)
             val userScore = dao.getUserScore(user) ?: throw IllegalStateException("Scores not init")
             userTaskManager.startManageUserTasks(activeUser, userScore)
         } else if (msg.isUnSubscribeMessage()) {
             dao.setUserInActive(user)
             userTaskManager.completeUserTaskManagement(activeUser)
+        } else if (msg.isScoreMessage()) {
+            val userScoreMsg =
+                TgText("Your score is ${dao.getUserScore(user)}, level is ${dao.getComplexityOfTaskForUser(user)}")
+            bot.sendMessage(chatId = tgChatId, text = userScoreMsg) {
+                // TODO FIXme
+            }
         }
     }.onFailure {
         log.error(it.message, it)
@@ -67,5 +78,9 @@ class UserSubscriptionHandler(
 
     private fun TgMessage.isUnSubscribeMessage(): Boolean {
         return this.text == unSubscribe
+    }
+
+    private fun TgMessage.isScoreMessage(): Boolean {
+        return this.text == scores
     }
 }

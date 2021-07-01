@@ -4,13 +4,14 @@ import ru.tg.pawaptz.inlined.Answer
 
 class MathIntTaskDescription(private val description: String) : TaskDescription {
 
-    private val regex = ".0(\$|\\s)".toRegex()
+    private val regex = "\\.0(\$|\\s)".toRegex()
+
     override fun question(): String {
         return description.replace(regex, " ").trim()
     }
 
     override fun withAnswer(answer: Answer): String {
-        return "$description = ${answer.v.toInt()}"
+        return "${question()} = ${answer.v.toInt()}"
     }
 
     override fun toString(): String {

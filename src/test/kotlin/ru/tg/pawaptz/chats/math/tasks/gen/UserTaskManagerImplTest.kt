@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import ru.tg.api.inlined.FirstName
 import ru.tg.api.inlined.TgChatId
 import ru.tg.api.transport.TgUser
+import ru.tg.pawaptz.achievments.AchievementSender
 import ru.tg.pawaptz.chats.math.TgTaskUpdater
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.TaskCosts
@@ -36,6 +37,7 @@ internal class UserTaskManagerImplTest {
     }
     private val usr = TgUser(1, false, FirstName("testUser"))
     private val taskCosts = TaskCosts(mapOf(TaskComplexity.EASY to 10))
+    private val achievementSender = mockk<AchievementSender>(relaxed = true)
     private val userTskManager =
         UserTaskManagerImpl(
             userComplexityProvider,
@@ -43,7 +45,8 @@ internal class UserTaskManagerImplTest {
             tgTaskUpdater,
             dao,
             channel.openSubscription(),
-            taskCosts
+            taskCosts,
+            achievementSender
         )
 
     @BeforeEach
@@ -54,7 +57,7 @@ internal class UserTaskManagerImplTest {
             every { it.getAllActiveUsers() } returns listOf()
         }
         userComplexityProvider.also {
-            coEvery { it.appropriateComplexity(usr) } returns TaskComplexity.EASY
+            coEvery { it.userComplexity(usr) } returns TaskComplexity.EASY
             coEvery { it.startTrackingComplexity(usr) } returns Unit
             coEvery { it.stopTrackingComplexity(usr) } returns Unit
         }

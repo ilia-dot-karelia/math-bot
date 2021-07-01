@@ -10,5 +10,7 @@ internal class MathIntTaskDescriptionTest {
         assertThat(MathIntTaskDescription("12.3 + 12.0").question()).isEqualTo("12.3 + 12")
         assertThat(MathIntTaskDescription("12.0 + 12.0").question()).isEqualTo("12 + 12")
         assertThat(MathIntTaskDescription("0.0 + 1.0 = ?").question()).isEqualTo("0 + 1 = ?")
+        assertThat(MathIntTaskDescription("4.0 - 0.0").question()).isEqualTo("4 - 0")
+        assertThat(MathIntTaskDescription("4 - 0").question()).isEqualTo("4 - 0")
     }
 }

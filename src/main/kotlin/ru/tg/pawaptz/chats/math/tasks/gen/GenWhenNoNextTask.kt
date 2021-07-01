@@ -19,7 +19,7 @@ class GenWhenNoNextTask(private val dao: PostgresDao) : TaskGenStrategy {
             val task = nextRnd(complexity)
             kotlin.runCatching {
                 val taskId = task.let {
-                    dao.saveTask(it)
+                    dao.saveTask(it, true)
                 }
                 if (dao.getUserAnswer(taskId) != task.answer().v) {
                     log.info("Yielding the next random task $taskId")
@@ -39,11 +39,33 @@ class GenWhenNoNextTask(private val dao: PostgresDao) : TaskGenStrategy {
         val y = complexity.generate()
         val x = complexity.generate()
         while (true) {
-            if (values.first() != Operator.DIVIDE || y != 0.0f) {
-                return values[0].apply(x, y)
-            } else {
+            val op = values.first()
+            if (op == Operator.DIVIDE && y == 0.0f) {
                 values.shuffle()
+                continue
+            }
+            return if (op == Operator.DIVIDE && x.isWhole() && y.isWhole()) {
+                if (x == 0.0F) {
+                    Operator.DIVIDE.apply(x, y.coerceAtLeast(1.0f))
+                } else {
+                    val factor = x.toInt().factorize().shuffled().random()
+                    Operator.DIVIDE.apply(x / factor, factor.toFloat())
+                }
+            } else {
+                values[0].apply(x, y)
             }
         }
     }
+}
+
+private fun Float.isWhole() = this.rem(1.0) == 0.0
+
+private fun Int.factorize(): List<Int> {
+    val rez = mutableListOf<Int>()
+    for (i in 1..this) {
+        if (this.rem(i) == 0) {
+            rez.add(i)
+        }
+    }
+    return rez
 }

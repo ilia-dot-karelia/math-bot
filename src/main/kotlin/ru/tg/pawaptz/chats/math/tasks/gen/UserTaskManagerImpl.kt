@@ -5,6 +5,7 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
+import ru.tg.pawaptz.achievments.AchievementSender
 import ru.tg.pawaptz.chats.math.TgTaskUpdater
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.TaskCosts
@@ -21,7 +22,8 @@ class UserTaskManagerImpl(
     private val taskUpdater: TgTaskUpdater,
     private val dao: PostgresDao,
     private val channel: ReceiveChannel<UserTaskCompletion>,
-    private val taskCosts: TaskCosts
+    private val taskCosts: TaskCosts,
+    private val achievementSender: AchievementSender
 ) : UserTaskManager {
 
     private val userMap = mutableMapOf<ActiveUser, UserContext>()
@@ -42,8 +44,16 @@ class UserTaskManagerImpl(
         job = CoroutineScope(Dispatchers.Default).launch {
             log.info("Start listening for task completions")
             while (isActive && !channel.isClosedForReceive) {
-                kotlin.runCatching { onTaskComplete(channel.receive()) }
-                    .onFailure { log.error("Failed to handle task completion event ${it.message}", it) }
+                kotlin.runCatching {
+                    val upd = channel.receive()
+                    onTaskComplete(upd)
+                    mtx.withLock {
+                        val userContext = userMap[upd.activeUser]
+                        if (userContext != null)
+                            sendNext(userContext, upd.activeUser)
+                    }
+
+                }.onFailure { log.error("Failed to handle task completion event ${it.message}", it) }
             }
             log.info("Stopped listening for task completions")
         }
@@ -56,17 +66,29 @@ class UserTaskManagerImpl(
     }
 
     override suspend fun startManageUserTasks(activeUser: ActiveUser, score: Score) {
-        mtx.withLock {
+        val ctx: UserContext = mtx.withLock {
             if (userMap.containsKey(activeUser)) {
-                return@withLock
+                return
             }
             log.info("Starting managing of user $activeUser")
             complexityProvider.startTrackingComplexity(activeUser.TgUser)
-            val complexity = complexityProvider.appropriateComplexity(activeUser.TgUser)
+            val complexity = complexityProvider.userComplexity(activeUser.TgUser)
             log.info("Using complexity $complexity for user $activeUser")
-            userMap[activeUser] = UserContext(score, complexity, dao, activeUser.TgUser, strategy)
+            val userContext = UserContext(score, complexity, dao, activeUser.TgUser, strategy)
+            userMap[activeUser] = userContext
+            return@withLock userContext
         }
-        sendNext(activeUser)
+        sendNext(ctx, activeUser)
+    }
+
+    private fun sendNext(
+        ctx: UserContext,
+        activeUser: ActiveUser
+    ) {
+        val task: MathTask = ctx.nextTask()
+        ctx.taskSendingJob = CoroutineScope(Dispatchers.Default).launch {
+            taskUpdater.sendTaskAndWaitAnswer(activeUser, task)
+        }
     }
 
     override suspend fun completeUserTaskManagement(activeUser: ActiveUser) = mtx.withLock {
@@ -74,15 +96,10 @@ class UserTaskManagerImpl(
             return@withLock
         }
         log.info("Stop managing of the user $activeUser")
-        userMap.remove(activeUser)
+        userMap.remove(activeUser)?.close()
         complexityProvider.stopTrackingComplexity(activeUser.TgUser)
     }
 
-    private suspend fun sendNext(activeUser: ActiveUser) {
-        val task: MathTask? = userMap[activeUser]?.nextTask()
-        if (task != null)
-            CoroutineScope(Dispatchers.Default).launch { taskUpdater.sendTaskAndWaitAnswer(activeUser, task) }
-    }
 
     private suspend fun onTaskComplete(upd: UserTaskCompletion) = mtx.withLock {
         val userAnswer = upd.answer
@@ -92,9 +109,8 @@ class UserTaskManagerImpl(
             log.info("Saved user`s answer: $userAnswer")
             val cost = taskCosts.getCost(upd.task.complexity())
             val scoresForTask = Score(if (userAnswer.isCorrect()) cost else -cost)
-            userMap[upd.activeUser]?.addScores(scoresForTask)
+            val currentScores = userMap[upd.activeUser]?.addScores(scoresForTask) ?: Score.ZERO
+            achievementSender.onTaskCompleted(upd.activeUser.TgUser, upd.activeUser.chatId, currentScores)
         }
-        delay(3_000)
-        sendNext(upd.activeUser)
     }
 }

@@ -2,6 +2,7 @@ package ru.tg.pawaptz.dao
 
 import ru.tg.api.inlined.TgChatId
 import ru.tg.api.transport.TgUser
+import ru.tg.pawaptz.achievments.Mood
 import ru.tg.pawaptz.chats.math.tasks.ActiveUser
 import ru.tg.pawaptz.chats.math.tasks.task.MathTask
 import ru.tg.pawaptz.chats.math.tasks.task.TaskComplexity
@@ -16,11 +17,13 @@ interface PostgresDao {
 
     fun setUserActivityStatus(userDto: TgUser, isActive: Boolean = true)
 
-    fun saveTask(task: MathTask): Long
+    fun saveTask(task: MathTask, isGenerated: Boolean = true): Long
 
     fun saveAnswer(taskId: Long, userId: Long, answer: Answer)
 
     fun getComplexityOfTaskForUser(TgUser: TgUser): TaskComplexity?
+
+    fun initUserComplexityForUser(TgUser: TgUser, complexity: TaskComplexity = TaskComplexity.EASY)
 
     fun updateComplexityForUser(TgUser: TgUser, taskComplexity: TaskComplexity)
 
@@ -32,11 +35,13 @@ interface PostgresDao {
 
     fun getAllActiveUsers(): List<Pair<ActiveUser, Score>>
 
-    fun addUserScore(userDto: TgUser, scores: Score)
+    fun addUserScore(userDto: TgUser, scores: Score): Score
 
     fun createUserScoresIfNotExist(userDto: TgUser)
 
     fun getUserScore(userDto: TgUser): Score?
+
+    fun getAchieveMessage(mood: Mood): String
 
     fun setUserActive(TgUser: TgUser) = setUserActivityStatus(TgUser, true)
 

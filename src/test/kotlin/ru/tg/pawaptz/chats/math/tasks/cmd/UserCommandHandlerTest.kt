@@ -23,7 +23,7 @@ import ru.tg.pawaptz.inlined.Score
 
 @ObsoleteCoroutinesApi
 @ExperimentalCoroutinesApi
-internal class UserSubscriptionHandlerTest {
+internal class UserCommandHandlerTest {
 
     private val dao = mockk<PostgresDao>()
     private val usr = TgUser(1, false, FirstName("testUser"))
@@ -31,7 +31,7 @@ internal class UserSubscriptionHandlerTest {
     private val updateDto = mockk<TgUpdate>()
     private val channel = BroadcastChannel<TgUpdate>(10)
     private val userTaskManager = mockk<UserTaskManager>()
-    private val handler = UserSubscriptionHandler(channel.openSubscription(), dao, userTaskManager)
+    private val handler = UserCommandHandler(channel.openSubscription(), dao, userTaskManager, mockk(relaxed = true))
     private val tgChatId = TgChatId(10)
 
     @BeforeEach
@@ -64,7 +64,7 @@ internal class UserSubscriptionHandlerTest {
 
     @Test
     fun whenUserSubscribeThenCreateItIfNeedAndSubscribe() = runBlocking {
-        every { messageDto.text } returns UserSubscriptionHandler.Companion.subscribe
+        every { messageDto.text } returns UserCommandHandler.Companion.subscribe
         channel.send(updateDto)
 
         verify(timeout = 100) { dao.createUserIfNotExist(usr, tgChatId) }
@@ -74,7 +74,7 @@ internal class UserSubscriptionHandlerTest {
 
     @Test
     fun whenUserSubscribeThenCreateScoresItIfNeedAndSubscribe() = runBlocking {
-        every { messageDto.text } returns UserSubscriptionHandler.Companion.subscribe
+        every { messageDto.text } returns UserCommandHandler.Companion.subscribe
         channel.send(updateDto)
 
         verify(timeout = 100) { dao.createUserScoresIfNotExist(usr) }
@@ -84,7 +84,7 @@ internal class UserSubscriptionHandlerTest {
 
     @Test
     fun whenUserHasScoresThenUseTheScoresItIfNeedAndSubscribe() = runBlocking {
-        every { messageDto.text } returns UserSubscriptionHandler.Companion.subscribe
+        every { messageDto.text } returns UserCommandHandler.Companion.subscribe
         every { dao.getUserScore(usr) } returns Score(100)
         channel.send(updateDto)
 
@@ -95,7 +95,7 @@ internal class UserSubscriptionHandlerTest {
 
     @Test
     fun whenUserUnSubscribeThenCreateItIfNeedAndUnSubscribe() = runBlocking {
-        every { messageDto.text } returns UserSubscriptionHandler.Companion.unSubscribe
+        every { messageDto.text } returns UserCommandHandler.Companion.unSubscribe
         channel.send(updateDto)
 
         verify(timeout = 100) { dao.createUserIfNotExist(usr, tgChatId) }
