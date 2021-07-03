@@ -50,7 +50,7 @@ internal class CountingTaskComplexityProviderTest {
 
     @ExperimentalCoroutinesApi
     @ParameterizedTest
-    @EnumSource(value = TaskComplexity::class, names = ["HIGH"], mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(value = TaskComplexity::class, names = ["HARD"], mode = EnumSource.Mode.EXCLUDE)
     fun whenOneHundredTasksSucceedOfOneHundredThenIncreaseTheComplexity(start: TaskComplexity) = runBlocking {
         every { dao.getComplexityOfTaskForUser(user) }.returns(start)
         complexityProvider.startTrackingComplexity(user)

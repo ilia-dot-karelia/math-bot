@@ -49,6 +49,7 @@ internal class UserCommandHandlerTest {
             every { it.setUserActivityStatus(usr, any()) } returns Unit
             every { it.createUserScoresIfNotExist(usr) } returns Unit
             every { it.getUserScore(usr) } returns Score.ZERO
+            every { it.initUserComplexityForUser(usr, any()) } returns Unit
         }
         userTaskManager.also {
             coEvery { it.completeUserTaskManagement(ActiveUser(usr, tgChatId)) } returns Unit
