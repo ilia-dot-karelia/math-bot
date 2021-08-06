@@ -13,6 +13,7 @@
     <version>0.0.1-SNAPSHOT</version>
     <name>tg-bot-math</name>
     <description>Telegram bot for planning and prioritizing</description>
+    <packaging>jar</packaging>
 
     <properties>
         <java.version>14</java.version>
@@ -23,15 +24,6 @@
         <ver.mockk>1.11.0</ver.mockk>
         <ver.okhttp>4.9.1</ver.okhttp>
     </properties>
-
-    <!--
-        <repositories>
-            <repository>
-                <id>jitpack.io</id>
-                <url>https://jitpack.io</url>
-            </repository>
-        </repositories>
-    -->
 
     <dependencies>
         <dependency>
@@ -147,6 +139,34 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/libs</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>libs/</classpathPrefix>
+                            <mainClass>ru.tg.pawaptz.TgBotWhatNextApplicationKt</mainClass>
+                        </manifest>
+                    </archive>
+                    <finalName>bot</finalName>
+                    <classesDirectory>target/classes</classesDirectory>
+                    <skipIfEmpty>true</skipIfEmpty>
+                </configuration>
             </plugin>
         </plugins>
     </build>
