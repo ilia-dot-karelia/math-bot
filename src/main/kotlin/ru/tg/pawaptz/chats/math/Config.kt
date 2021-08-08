@@ -32,7 +32,7 @@ import kotlin.time.ExperimentalTime
 @ObsoleteCoroutinesApi
 @SuppressWarnings("unused")
 @SpringBootConfiguration
-@PropertySource("file:\${secret.path:secrets/secrets.properties}")
+@PropertySource("file:private/secrets.properties")
 class Config {
 
     @ExperimentalCoroutinesApi

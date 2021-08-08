@@ -1,0 +1,1 @@
+docker run elias89/pawaptz:arm-1.2
