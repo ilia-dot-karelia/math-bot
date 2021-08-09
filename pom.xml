@@ -160,7 +160,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>libs/</classpathPrefix>
-                            <mainClass>ru.tg.pawaptz.TgBotWhatNextApplicationKt</mainClass>
+                            <mainClass>ru.tg.pawaptz.TgBotMathAppKt</mainClass>
                         </manifest>
                     </archive>
                     <finalName>bot</finalName>
